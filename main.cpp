@@ -1,16 +1,21 @@
 #include <iostream>
+#include <stdio.h>
 
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGl.hpp>
 
-#define WW 200
-#define WH 200
+#define WW 128
+#define WH 128
 
-#define MAXNEIGHBORS 6
-#define MINNEIGHBORS 4
+#define MAXNEIGHBORS 8
+#define MINNEIGHBORS 6
 
-#define NOISEPERCENT 80
+#define NOISEPERCENT 90
+
+#define NUMPASSES 50
+
+#define TIMEPERPASS 200
 
 using namespace std;
 
@@ -41,21 +46,78 @@ public:
                 passResult[x] = false;
             }
         }
-
-
     }
 
     void generateNextPass(Pass previousPass){
         for(int x = 0; x < maxPoints; x++){
+
             passResult[x] = previousPass.getResults(x);
+
             int numNeighbors = 0;
-            if(x%WW == 0 || (x+1)%WW == 0){
-                numNeighbors += 2;
+
+            if(x%WW == 0){
+                numNeighbors += 3;
+
+                if(x/WW == 0){
+                    numNeighbors +=2;
+                    numNeighbors += previousPass.getResults(x + 1);
+                    numNeighbors += previousPass.getResults(x + WW);
+                    numNeighbors += previousPass.getResults(x + WW + 1);
+                }
+                else if(x/WW + 1 == WH){
+                    numNeighbors += 2;
+                    numNeighbors += previousPass.getResults(x - WW);
+                    numNeighbors += previousPass.getResults(x - WW + 1);
+                    numNeighbors += previousPass.getResults(x + 1);
+                }
+                else{
+                    numNeighbors += previousPass.getResults(x - WW);
+                    numNeighbors += previousPass.getResults(x - WW + 1);
+                    numNeighbors += previousPass.getResults(x + 1);
+                    numNeighbors += previousPass.getResults(x + WW);
+                    numNeighbors += previousPass.getResults(x + WW + 1);
+                }
             }
-            if(x/WW == 0 || x/WW + 1 == WH){
-                numNeighbors += 2;
+            else if((x+1)%WW == 0){
+                numNeighbors += 3;
+
+                if(x/WW == 0){
+                    numNeighbors += 2;
+                    numNeighbors += previousPass.getResults(x - 1);
+                    numNeighbors += previousPass.getResults(x + WW - 1);
+                    numNeighbors += previousPass.getResults(x + WW);
+                }
+                else if(x/WW + 1 == WH){
+                    numNeighbors += 2;
+                    numNeighbors += previousPass.getResults(x - WW - 1);
+                    numNeighbors += previousPass.getResults(x - WW);
+                    numNeighbors += previousPass.getResults(x - 1);
+                }
+                else{
+                    numNeighbors += previousPass.getResults(x - WW - 1);
+                    numNeighbors += previousPass.getResults(x - WW);
+                    numNeighbors += previousPass.getResults(x - 1);
+                    numNeighbors += previousPass.getResults(x + WW - 1);
+                    numNeighbors += previousPass.getResults(x + WW);
+                }
             }
-            if(x%WW != 0 && (x+1)%WW != 0 && x/WW != 0 && x/WW + 1 != WH){
+            else if(x/WW == 0 && x%WW != 0 && (x+1)%WW != 0){
+                numNeighbors += 3;
+                numNeighbors += previousPass.getResults(x - 1);
+                numNeighbors += previousPass.getResults(x + 1);
+                numNeighbors += previousPass.getResults(x + WW - 1);
+                numNeighbors += previousPass.getResults(x + WW);
+                numNeighbors += previousPass.getResults(x + WW + 1);
+            }
+            else if(x/WW + 1 == WH && x%WW != 0 && (x+1)%WW != 0){
+                numNeighbors += 3;
+                numNeighbors += previousPass.getResults(x - WW - 1);
+                numNeighbors += previousPass.getResults(x - WW);
+                numNeighbors += previousPass.getResults(x - WW + 1);
+                numNeighbors += previousPass.getResults(x - 1);
+                numNeighbors += previousPass.getResults(x + 1);
+            }
+            else{
                 numNeighbors += previousPass.getResults(x - WW - 1);
                 numNeighbors += previousPass.getResults(x - WW);
                 numNeighbors += previousPass.getResults(x - WW + 1);
@@ -67,6 +129,7 @@ public:
                 numNeighbors += previousPass.getResults(x + WW);
                 numNeighbors += previousPass.getResults(x + WW + 1);
             }
+
             if(numNeighbors >= MINNEIGHBORS && numNeighbors <= MAXNEIGHBORS){
                 passResult[x] = true;
                 numPoints++;
@@ -136,9 +199,11 @@ int Pass::maxPoints = WW*WH;
 
 int main()
 {
+    srand(time(0));
     sf::RenderWindow window(sf::VideoMode(WW, WH), "Map generator 2019");
+    char buffer[32];
 
-    int numPasses = 10;
+    int numPasses = NUMPASSES;
     Pass pass[numPasses];
 
     pass[0].generateFirstPass();
@@ -158,14 +223,17 @@ int main()
         }
 
 
-        count = (count + 1)%(500*numPasses);
+        count = (count + 1)%(TIMEPERPASS*numPasses);
 
         window.clear(sf::Color::Black);
 
         for(int x = 0; x < numPasses; x++){
-            if(count > x*500 && count <= (x+1)*500){
+            if(count > x*TIMEPERPASS && count <= (x+1)*TIMEPERPASS){
+                sprintf(buffer, "Pass: %d", x);
+                window.setTitle(buffer);
                 pass[x].displayArray(&window);
             }
+
         }
 
 
