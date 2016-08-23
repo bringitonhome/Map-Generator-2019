@@ -5,32 +5,41 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGl.hpp>
 
-#define WW 128
-#define WH 128
+#define CHUNKWIDTH 128
+#define CHUNKHEIGHT 128
+
+#define WW 640
+#define WH 640
 
 #define MAXNEIGHBORS 8
 #define MINNEIGHBORS 6
 
-#define NOISEPERCENT 90
-
-#define NUMPASSES 50
+#define MAXNUMPASSES 25
 
 #define TIMEPERPASS 200
 
+#define NUMBIOMES 4
+
+#define GRASS 0
+#define WATER 1
+#define ROCK 2
+#define LAVA 3
+
+#define NOISEPERCENT 90
+
+#define SOFTTRANSITION 0
+#define HARDTRANSITION 1
+
+#define SOFTTRANSITIONCHANCE 70
+
 using namespace std;
 
-class Pass{
+class Biome{
 public:
+
     static int maxPoints;
 
-    Pass();
-
-    bool getResults(int x){
-        return passResult[x];
-    }
-    int getNumPoints(){
-        return numPoints;
-    }
+    Biome();
 
     void generateFirstPass(){
         for(int x = 0; x < maxPoints; x++){
@@ -38,205 +47,316 @@ public:
             int noise = rand()%100;
 
             if(noise <= NOISEPERCENT){
-                passResult[x] = true;
-                numPoints ++;
+                currentPass[x] = true;
             }
 
             else if(noise > NOISEPERCENT){
-                passResult[x] = false;
+                currentPass[x] = false;
             }
         }
     }
 
-    void generateNextPass(Pass previousPass){
+    void generateSubsequentPass(){
         for(int x = 0; x < maxPoints; x++){
+            previousPass[x] = currentPass[x];
+        }
 
-            passResult[x] = previousPass.getResults(x);
-
+        for(int x = 0; x < maxPoints; x++){
             int numNeighbors = 0;
 
-            if(x%WW == 0){
+            if(x%CHUNKWIDTH == 0){
                 numNeighbors += 3;
 
-                if(x/WW == 0){
+                if(x/CHUNKWIDTH == 0){
                     numNeighbors +=2;
-                    numNeighbors += previousPass.getResults(x + 1);
-                    numNeighbors += previousPass.getResults(x + WW);
-                    numNeighbors += previousPass.getResults(x + WW + 1);
+                    numNeighbors += previousPass[x + 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH];
+                    numNeighbors += previousPass[x + CHUNKWIDTH + 1];
                 }
-                else if(x/WW + 1 == WH){
+                else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT){
                     numNeighbors += 2;
-                    numNeighbors += previousPass.getResults(x - WW);
-                    numNeighbors += previousPass.getResults(x - WW + 1);
-                    numNeighbors += previousPass.getResults(x + 1);
+                    numNeighbors += previousPass[x - CHUNKWIDTH];
+                    numNeighbors += previousPass[x - CHUNKWIDTH + 1];
+                    numNeighbors += previousPass[x + 1];
                 }
                 else{
-                    numNeighbors += previousPass.getResults(x - WW);
-                    numNeighbors += previousPass.getResults(x - WW + 1);
-                    numNeighbors += previousPass.getResults(x + 1);
-                    numNeighbors += previousPass.getResults(x + WW);
-                    numNeighbors += previousPass.getResults(x + WW + 1);
+                    numNeighbors += previousPass[x - CHUNKWIDTH];
+                    numNeighbors += previousPass[x - CHUNKWIDTH + 1];
+                    numNeighbors += previousPass[x + 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH];
+                    numNeighbors += previousPass[x + CHUNKWIDTH + 1];
                 }
             }
-            else if((x+1)%WW == 0){
+            else if((x+1)%CHUNKWIDTH == 0){
                 numNeighbors += 3;
 
-                if(x/WW == 0){
+                if(x/CHUNKWIDTH == 0){
                     numNeighbors += 2;
-                    numNeighbors += previousPass.getResults(x - 1);
-                    numNeighbors += previousPass.getResults(x + WW - 1);
-                    numNeighbors += previousPass.getResults(x + WW);
+                    numNeighbors += previousPass[x - 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH - 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH];
                 }
-                else if(x/WW + 1 == WH){
+                else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT){
                     numNeighbors += 2;
-                    numNeighbors += previousPass.getResults(x - WW - 1);
-                    numNeighbors += previousPass.getResults(x - WW);
-                    numNeighbors += previousPass.getResults(x - 1);
+                    numNeighbors += previousPass[x - CHUNKWIDTH - 1];
+                    numNeighbors += previousPass[x - CHUNKWIDTH];
+                    numNeighbors += previousPass[x - 1];
                 }
                 else{
-                    numNeighbors += previousPass.getResults(x - WW - 1);
-                    numNeighbors += previousPass.getResults(x - WW);
-                    numNeighbors += previousPass.getResults(x - 1);
-                    numNeighbors += previousPass.getResults(x + WW - 1);
-                    numNeighbors += previousPass.getResults(x + WW);
+                    numNeighbors += previousPass[x - CHUNKWIDTH - 1];
+                    numNeighbors += previousPass[x - CHUNKWIDTH];
+                    numNeighbors += previousPass[x - 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH - 1];
+                    numNeighbors += previousPass[x + CHUNKWIDTH];
                 }
             }
-            else if(x/WW == 0 && x%WW != 0 && (x+1)%WW != 0){
+            else if(x/CHUNKWIDTH == 0 && x%CHUNKWIDTH != 0 && (x+1)%CHUNKWIDTH != 0){
                 numNeighbors += 3;
-                numNeighbors += previousPass.getResults(x - 1);
-                numNeighbors += previousPass.getResults(x + 1);
-                numNeighbors += previousPass.getResults(x + WW - 1);
-                numNeighbors += previousPass.getResults(x + WW);
-                numNeighbors += previousPass.getResults(x + WW + 1);
+                numNeighbors += previousPass[x - 1];
+                numNeighbors += previousPass[x + 1];
+                numNeighbors += previousPass[x + CHUNKWIDTH - 1];
+                numNeighbors += previousPass[x + CHUNKWIDTH];
+                numNeighbors += previousPass[x + CHUNKWIDTH + 1];
             }
-            else if(x/WW + 1 == WH && x%WW != 0 && (x+1)%WW != 0){
+            else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT && x%CHUNKWIDTH != 0 && (x+1)%CHUNKWIDTH != 0){
                 numNeighbors += 3;
-                numNeighbors += previousPass.getResults(x - WW - 1);
-                numNeighbors += previousPass.getResults(x - WW);
-                numNeighbors += previousPass.getResults(x - WW + 1);
-                numNeighbors += previousPass.getResults(x - 1);
-                numNeighbors += previousPass.getResults(x + 1);
+                numNeighbors += previousPass[x - CHUNKWIDTH - 1];
+                numNeighbors += previousPass[x - CHUNKWIDTH];
+                numNeighbors += previousPass[x - CHUNKWIDTH + 1];
+                numNeighbors += previousPass[x - 1];
+                numNeighbors += previousPass[x + 1];
             }
             else{
-                numNeighbors += previousPass.getResults(x - WW - 1);
-                numNeighbors += previousPass.getResults(x - WW);
-                numNeighbors += previousPass.getResults(x - WW + 1);
+                numNeighbors += previousPass[x - CHUNKWIDTH - 1];
+                numNeighbors += previousPass[x - CHUNKWIDTH];
+                numNeighbors += previousPass[x - CHUNKWIDTH + 1];
 
-                numNeighbors += previousPass.getResults(x - 1);
-                numNeighbors += previousPass.getResults(x + 1);
+                numNeighbors += previousPass[x - 1];
+                numNeighbors += previousPass[x + 1];
 
-                numNeighbors += previousPass.getResults(x + WW - 1);
-                numNeighbors += previousPass.getResults(x + WW);
-                numNeighbors += previousPass.getResults(x + WW + 1);
+                numNeighbors += previousPass[x + CHUNKWIDTH - 1];
+                numNeighbors += previousPass[x + CHUNKWIDTH];
+                numNeighbors += previousPass[x + CHUNKWIDTH + 1];
             }
 
             if(numNeighbors >= MINNEIGHBORS && numNeighbors <= MAXNEIGHBORS){
-                passResult[x] = true;
-                numPoints++;
+                currentPass[x] = true;
             }
             else{
-                passResult[x] = false;
+                currentPass[x] = false;
             }
         }
     }
 
-    void displayArray(sf::RenderWindow* window){
+    void setInitialBiome(){
+        mediumID = rand()%NUMBIOMES;
+
+        if(mediumID == GRASS || mediumID == WATER){
+            spawnID = rand()%LAVA;
+        }
+        else if(mediumID == ROCK){
+            spawnID = rand()%NUMBIOMES;
+        }
+        else if(mediumID == LAVA){
+            spawnID = ROCK + rand()%2;
+        }
+    }
+
+    void setSubsequentBiome(int previousMedium){
+
+        int transitionType;
+        int transitionCheck = rand()%100;
+        if(transitionCheck <= SOFTTRANSITIONCHANCE){
+            transitionType = SOFTTRANSITION;
+        }
+        else{
+            transitionType = HARDTRANSITION;
+        }
+        cout << transitionType << endl;
+
+        if(transitionType == SOFTTRANSITION){ //Same medium
+            mediumID = previousMedium;
+            if(mediumID == GRASS || mediumID == WATER){
+                spawnID = rand()%LAVA;
+            }
+            else if(mediumID == ROCK){
+                spawnID = rand()%NUMBIOMES;
+            }
+            else if(mediumID == LAVA){
+                spawnID = ROCK + rand()%2;
+            }
+        }
+        else if(transitionType == HARDTRANSITION){ //Different medium
+            spawnID = previousMedium;
+            mediumID = rand()%NUMBIOMES;
+            while(mediumID == previousMedium){
+                mediumID = rand()%NUMBIOMES;
+            }
+            if(mediumID == GRASS || mediumID == WATER){
+                spawnID = rand()%LAVA;
+            }
+            else if(mediumID == ROCK){
+                spawnID = rand()%NUMBIOMES;
+            }
+            else if(mediumID == LAVA){
+                spawnID = ROCK + rand()%2;
+            }
+        }
+
+    }
+
+    void generateInitialChunk(){
+
+        xCoord = 0;
+        yCoord = 0;
+
+        generateFirstPass();
+        for(int x = 0; x < numPasses; x++){
+            generateSubsequentPass();
+        }
+        setInitialBiome();
+    }
+
+    void generateSubsequentChunk(int previousMedium, int previousX, int previousY, int plusX, int plusY){
+
+        xCoord = previousX + plusX*CHUNKWIDTH;
+        yCoord = previousY + plusY*CHUNKHEIGHT;
+
+        generateFirstPass();
+        for(int x = 0; x < numPasses; x++){
+            generateSubsequentPass();
+        }
+        setSubsequentBiome(previousMedium);
+
+
+    }
+
+    int getMedium(){
+        return mediumID;
+    }
+    int getSpawn(){
+        return spawnID;
+    }
+
+    int getXCoordinates(){
+        return xCoord;
+    }
+    int getYCoordinates(){
+        return yCoord;
+    }
+
+    void displayBiome(sf::RenderWindow* window){
+
+        if(mediumID == GRASS){
+            mediumColor = sf::Color::Green;
+        }
+        else if(mediumID == WATER){
+            mediumColor = sf::Color::Blue;
+        }
+        else if(mediumID == ROCK){
+            mediumColor = sf::Color(128, 64, 0);
+        }
+        else if(mediumID == LAVA){
+            mediumColor = sf::Color::Red;
+        }
+
+        if(spawnID == GRASS){
+            spawnColor = sf::Color::Green;
+        }
+        else if(spawnID == WATER){
+            spawnColor = sf::Color::Blue;
+        }
+        else if(spawnID == ROCK){
+            spawnColor = sf::Color(128, 64, 0);
+        }
+        else if(spawnID == LAVA){
+            spawnColor = sf::Color::Red;
+        }
+
         sf::VertexArray points(sf::Points, maxPoints);
-        for(int x = 0; x < maxPoints ; x++){
+        for(int x = 0; x < maxPoints; x++){
 
-            points[x].position = sf::Vector2f(x%WW, x/WW);
+            points[x].position = sf::Vector2f(xCoord + x%CHUNKWIDTH, yCoord + x/CHUNKWIDTH);
 
-            if(passResult[x] == true){
-                points[x].color = sf::Color::Green;
+            if(currentPass[x] == true){ //Medium
+                points[x].color = mediumColor;
             }
-            else if(passResult[x] == false){
-                points[x].color = sf::Color::Blue;
+            else if(currentPass[x] == false){ //Flood
+                points[x].color = spawnColor;
             }
-
         }
 
- /*
-        int numVoids = maxPoints - numPoints;
-
-        sf::VertexArray voids(sf::Points, maxPoints - numPoints);
-
-        int pixelID = 0;
-        for(int x = 0; x < numPoints; x++){
-            while(passResult[pixelID] == false){
-                pixelID ++;
-            }
-            points[x].position = sf::Vector2f(pixelID%WW, pixelID/WW);
-            points[x].color = sf::Color::Green;
-            pixelID ++;
-        }
-        pixelID = 0;
-
-        for(int x = 0; x < numVoids; x++){
-            while(passResult[pixelID] == true){
-                pixelID ++;
-            }
-            voids[x].position = sf::Vector2f(pixelID%WW, pixelID/WW);
-            points[x].color = sf::Color::Green;
-            pixelID ++;
-        }
-*/
         (*window).draw(points);
     }
 
 
+
+
 private:
-    int numPoints;
-    bool passResult[WW*WH];
+    bool previousPass[CHUNKWIDTH*CHUNKHEIGHT];
+    bool currentPass[CHUNKWIDTH*CHUNKHEIGHT];
+
+    sf::Color mediumColor;
+    sf::Color spawnColor;
+
+    int mediumID;
+    int spawnID;
+    int numPasses;
+    int xCoord;
+    int yCoord;
 };
 
-
-Pass::Pass(){
-    numPoints = 0;
+Biome::Biome(){
+    numPasses = 1 + rand()%MAXNUMPASSES;
 }
 
-int Pass::maxPoints = WW*WH;
+
+int Biome::maxPoints = CHUNKWIDTH*CHUNKHEIGHT;
+
 
 
 int main()
 {
     srand(time(0));
     sf::RenderWindow window(sf::VideoMode(WW, WH), "Map generator 2019");
-    char buffer[32];
 
-    int numPasses = NUMPASSES;
-    Pass pass[numPasses];
+    int numBiomes = 50;
+    int currentBiome = 0;
 
-    pass[0].generateFirstPass();
-    for(int x = 1; x < numPasses; x++){
-        pass[x].generateNextPass(pass[x-1]);
-    }
+    Biome biomes[numBiomes];
+    biomes[0].generateInitialChunk();
 
-
-    int count = 0;
     while(window.isOpen()){
+
+        bool upPressed = false;
+        bool downPressed = false;
+        bool rightPressed = false;
+        bool leftPressed = false;
 
         sf::Event event;
         while(window.pollEvent(event)){
             if(event.type == sf::Event::Closed || event.key.code == sf::Keyboard::Escape){
                 window.close();
             }
-        }
 
-
-        count = (count + 1)%(TIMEPERPASS*numPasses);
-
-        window.clear(sf::Color::Black);
-
-        for(int x = 0; x < numPasses; x++){
-            if(count > x*TIMEPERPASS && count <= (x+1)*TIMEPERPASS){
-                sprintf(buffer, "Pass: %d", x);
-                window.setTitle(buffer);
-                pass[x].displayArray(&window);
+            if(event.type == sf::Event::KeyReleased){
+                currentBiome ++;
+                upPressed = event.key.code == sf::Keyboard::Up;
+                downPressed = event.key.code == sf::Keyboard::Down;
+                rightPressed = event.key.code == sf::Keyboard::Right;
+                leftPressed = event.key.code == sf::Keyboard::Left;
+                biomes[currentBiome].generateSubsequentChunk(biomes[currentBiome - 1].getMedium(), biomes[currentBiome - 1].getXCoordinates(), biomes[currentBiome - 1].getYCoordinates(), (int)(rightPressed - leftPressed), (int)(downPressed - upPressed));
+                cout << biomes[currentBiome].getXCoordinates() << " " << biomes[currentBiome].getYCoordinates() << endl;
             }
 
         }
 
+        window.clear(sf::Color::Black);
 
+
+        for(int x = 0; x < currentBiome + 1; x++){
+            biomes[x].displayBiome(&window);
+        }
 
         window.display();
     }
