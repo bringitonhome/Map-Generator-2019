@@ -5,6 +5,8 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGl.hpp>
 
+#include <math.h>
+
 #define CHUNKWIDTH 128
 #define CHUNKHEIGHT 128
 
@@ -14,7 +16,7 @@
 #define MAXNEIGHBORS 8
 #define MINNEIGHBORS 6
 
-#define MAXNUMPASSES 25
+#define MAXNUMPASSES 50
 
 #define TIMEPERPASS 200
 
@@ -41,25 +43,54 @@ public:
 
     Biome();
 
-    void generateFirstPass(){
-        for(int x = 0; x < maxPoints; x++){
-
-            int noise = rand()%100;
-
-            if(noise <= NOISEPERCENT){
-                currentPass[x] = true;
+    void binaryToDecimal(bool binaryPass[]){
+        for(int byte = 0; byte < maxPoints/8; byte++){
+            int decimalValue = 0;
+            for(int bit = 0; bit < 8; bit++){
+                decimalValue += (int)(binaryPass[8*byte + bit]*pow(2, 7-bit));
             }
+            currentPassDec[byte] = (int)decimalValue;
+        }
+    }
 
-            else if(noise > NOISEPERCENT){
-                currentPass[x] = false;
+    void decimalToBinary(bool binaryPass[]){
+        for(int byte = 0; byte < maxPoints/8; byte++){
+            int decimalValue = (int)currentPassDec[byte];
+            for(int bit = 0; bit < 8; bit++){
+                binaryPass[8*byte + bit] = (bool)(decimalValue / (int)pow(2, 7-bit));
+                decimalValue = decimalValue % (int)pow(2, 7-bit);
             }
         }
     }
 
-    void generateSubsequentPass(){
-        for(int x = 0; x < maxPoints; x++){
-            previousPass[x] = currentPass[x];
+    void generateFirstPass(){
+        bool currentPassBinary[maxPoints];
+        for(int bit = 0; bit < maxPoints; bit++){
+
+            int noise = rand()%100;
+
+            if(noise <= NOISEPERCENT){
+                currentPassBinary[bit] = true;
+            }
+
+            else if(noise > NOISEPERCENT){
+                currentPassBinary[bit] = false;
+            }
+
         }
+        binaryToDecimal(currentPassBinary);
+    }
+
+    void generateSubsequentPass(){
+        bool previousPassBinary[maxPoints];
+        bool currentPassBinary[maxPoints];
+
+        decimalToBinary(previousPassBinary);
+        /*
+        for(int x = 0; x < maxPoints; x++){
+            previousPassBinary[x] = currentPassBinary[x];
+        }
+        */
 
         for(int x = 0; x < maxPoints; x++){
             int numNeighbors = 0;
@@ -68,23 +99,23 @@ public:
                 numNeighbors += 3;
 
                 if(x/CHUNKWIDTH == 0){
-                    numNeighbors +=2;
-                    numNeighbors += previousPass[x + 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH];
-                    numNeighbors += previousPass[x + CHUNKWIDTH + 1];
+                    numNeighbors += 2;
+                    numNeighbors += previousPassBinary[x + 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH + 1];
                 }
                 else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT){
                     numNeighbors += 2;
-                    numNeighbors += previousPass[x - CHUNKWIDTH];
-                    numNeighbors += previousPass[x - CHUNKWIDTH + 1];
-                    numNeighbors += previousPass[x + 1];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH + 1];
+                    numNeighbors += previousPassBinary[x + 1];
                 }
                 else{
-                    numNeighbors += previousPass[x - CHUNKWIDTH];
-                    numNeighbors += previousPass[x - CHUNKWIDTH + 1];
-                    numNeighbors += previousPass[x + 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH];
-                    numNeighbors += previousPass[x + CHUNKWIDTH + 1];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH + 1];
+                    numNeighbors += previousPassBinary[x + 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH + 1];
                 }
             }
             else if((x+1)%CHUNKWIDTH == 0){
@@ -92,60 +123,62 @@ public:
 
                 if(x/CHUNKWIDTH == 0){
                     numNeighbors += 2;
-                    numNeighbors += previousPass[x - 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH - 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH - 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH];
                 }
                 else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT){
                     numNeighbors += 2;
-                    numNeighbors += previousPass[x - CHUNKWIDTH - 1];
-                    numNeighbors += previousPass[x - CHUNKWIDTH];
-                    numNeighbors += previousPass[x - 1];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH - 1];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - 1];
                 }
                 else{
-                    numNeighbors += previousPass[x - CHUNKWIDTH - 1];
-                    numNeighbors += previousPass[x - CHUNKWIDTH];
-                    numNeighbors += previousPass[x - 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH - 1];
-                    numNeighbors += previousPass[x + CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH - 1];
+                    numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                    numNeighbors += previousPassBinary[x - 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH - 1];
+                    numNeighbors += previousPassBinary[x + CHUNKWIDTH];
                 }
             }
             else if(x/CHUNKWIDTH == 0 && x%CHUNKWIDTH != 0 && (x+1)%CHUNKWIDTH != 0){
                 numNeighbors += 3;
-                numNeighbors += previousPass[x - 1];
-                numNeighbors += previousPass[x + 1];
-                numNeighbors += previousPass[x + CHUNKWIDTH - 1];
-                numNeighbors += previousPass[x + CHUNKWIDTH];
-                numNeighbors += previousPass[x + CHUNKWIDTH + 1];
+                numNeighbors += previousPassBinary[x - 1];
+                numNeighbors += previousPassBinary[x + 1];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH - 1];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH + 1];
             }
             else if(x/CHUNKWIDTH + 1 == CHUNKHEIGHT && x%CHUNKWIDTH != 0 && (x+1)%CHUNKWIDTH != 0){
                 numNeighbors += 3;
-                numNeighbors += previousPass[x - CHUNKWIDTH - 1];
-                numNeighbors += previousPass[x - CHUNKWIDTH];
-                numNeighbors += previousPass[x - CHUNKWIDTH + 1];
-                numNeighbors += previousPass[x - 1];
-                numNeighbors += previousPass[x + 1];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH - 1];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH + 1];
+                numNeighbors += previousPassBinary[x - 1];
+                numNeighbors += previousPassBinary[x + 1];
             }
             else{
-                numNeighbors += previousPass[x - CHUNKWIDTH - 1];
-                numNeighbors += previousPass[x - CHUNKWIDTH];
-                numNeighbors += previousPass[x - CHUNKWIDTH + 1];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH - 1];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH];
+                numNeighbors += previousPassBinary[x - CHUNKWIDTH + 1];
 
-                numNeighbors += previousPass[x - 1];
-                numNeighbors += previousPass[x + 1];
+                numNeighbors += previousPassBinary[x - 1];
+                numNeighbors += previousPassBinary[x + 1];
 
-                numNeighbors += previousPass[x + CHUNKWIDTH - 1];
-                numNeighbors += previousPass[x + CHUNKWIDTH];
-                numNeighbors += previousPass[x + CHUNKWIDTH + 1];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH - 1];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH];
+                numNeighbors += previousPassBinary[x + CHUNKWIDTH + 1];
             }
 
             if(numNeighbors >= MINNEIGHBORS && numNeighbors <= MAXNEIGHBORS){
-                currentPass[x] = true;
+                currentPassBinary[x] = true;
             }
             else{
-                currentPass[x] = false;
+                currentPassBinary[x] = false;
             }
         }
+
+        binaryToDecimal(currentPassBinary);
     }
 
     void setInitialBiome(){
@@ -172,7 +205,6 @@ public:
         else{
             transitionType = HARDTRANSITION;
         }
-        cout << transitionType << endl;
 
         if(transitionType == SOFTTRANSITION){ //Same medium
             mediumID = previousMedium;
@@ -201,6 +233,7 @@ public:
             else if(mediumID == LAVA){
                 spawnID = ROCK + rand()%2;
             }
+
         }
 
     }
@@ -211,41 +244,30 @@ public:
         yCoord = 0;
 
         generateFirstPass();
+
         for(int x = 0; x < numPasses; x++){
             generateSubsequentPass();
         }
+
         setInitialBiome();
     }
 
     void generateSubsequentChunk(int previousMedium, int previousX, int previousY, int plusX, int plusY){
 
-        xCoord = previousX + plusX*CHUNKWIDTH;
-        yCoord = previousY + plusY*CHUNKHEIGHT;
+        xCoord = previousX + plusX;
+        yCoord = previousY + plusY;
 
         generateFirstPass();
         for(int x = 0; x < numPasses; x++){
             generateSubsequentPass();
         }
         setSubsequentBiome(previousMedium);
-
-
-    }
-
-    int getMedium(){
-        return mediumID;
-    }
-    int getSpawn(){
-        return spawnID;
-    }
-
-    int getXCoordinates(){
-        return xCoord;
-    }
-    int getYCoordinates(){
-        return yCoord;
     }
 
     void displayBiome(sf::RenderWindow* window){
+
+        sf::Color mediumColor;
+        sf::Color spawnColor;
 
         if(mediumID == GRASS){
             mediumColor = sf::Color::Green;
@@ -274,14 +296,18 @@ public:
         }
 
         sf::VertexArray points(sf::Points, maxPoints);
+
+        bool currentPassBinary[maxPoints];
+        decimalToBinary(currentPassBinary);
+
         for(int x = 0; x < maxPoints; x++){
 
             points[x].position = sf::Vector2f(xCoord + x%CHUNKWIDTH, yCoord + x/CHUNKWIDTH);
 
-            if(currentPass[x] == true){ //Medium
+            if(currentPassBinary[x] == true){ //Medium
                 points[x].color = mediumColor;
             }
-            else if(currentPass[x] == false){ //Flood
+            else if(currentPassBinary[x] == false){ //Spawn
                 points[x].color = spawnColor;
             }
         }
@@ -290,30 +316,84 @@ public:
     }
 
 
+    void setNeighbor(string direction, int biomeID){
+        if(direction == "North"){
+            northNeighbor = biomeID;
+        }
+        else if(direction == "South"){
+            southNeighbor = biomeID;
+        }
+        else if(direction == "East"){
+            eastNeighbor = biomeID;
+        }
+        else if(direction == "West"){
+            westNeighbor = biomeID;
+        }
+    }
+
+    int getNeighbor(string direction){
+        int biomeID;
+        if(direction == "North"){
+            biomeID = northNeighbor;
+        }
+        else if(direction == "South"){
+            biomeID = southNeighbor;
+        }
+        else if(direction == "East"){
+            biomeID = eastNeighbor;
+        }
+        else if(direction == "West"){
+            biomeID = westNeighbor;
+        }
+        return biomeID;
+    }
+
+    int getMedium(){
+        return mediumID;
+    }
+
+    int getSpawn(){
+        return spawnID;
+    }
+
+    int getXCoordinates(){
+        return xCoord;
+    }
+
+    int getYCoordinates(){
+        return yCoord;
+    }
 
 
 private:
-    bool previousPass[CHUNKWIDTH*CHUNKHEIGHT];
-    bool currentPass[CHUNKWIDTH*CHUNKHEIGHT];
 
-    sf::Color mediumColor;
-    sf::Color spawnColor;
+    unsigned char currentPassDec[CHUNKWIDTH*CHUNKHEIGHT/8];
+    //bool currentPassBinary[CHUNKWIDTH*CHUNKHEIGHT];
 
     int mediumID;
     int spawnID;
     int numPasses;
     int xCoord;
     int yCoord;
+
+    int northNeighbor;
+    int southNeighbor;
+    int eastNeighbor;
+    int westNeighbor;
 };
 
 Biome::Biome(){
     numPasses = 1 + rand()%MAXNUMPASSES;
+
+    //-1 means not set
+    northNeighbor = -1;
+    southNeighbor = -1;
+    eastNeighbor = -1;
+    westNeighbor = -1;
 }
 
 
 int Biome::maxPoints = CHUNKWIDTH*CHUNKHEIGHT;
-
-
 
 int main()
 {
@@ -332,6 +412,7 @@ int main()
         bool downPressed = false;
         bool rightPressed = false;
         bool leftPressed = false;
+        string direction;
 
         sf::Event event;
         while(window.pollEvent(event)){
@@ -340,19 +421,47 @@ int main()
             }
 
             if(event.type == sf::Event::KeyReleased){
-                currentBiome ++;
-                upPressed = event.key.code == sf::Keyboard::Up;
-                downPressed = event.key.code == sf::Keyboard::Down;
-                rightPressed = event.key.code == sf::Keyboard::Right;
-                leftPressed = event.key.code == sf::Keyboard::Left;
-                biomes[currentBiome].generateSubsequentChunk(biomes[currentBiome - 1].getMedium(), biomes[currentBiome - 1].getXCoordinates(), biomes[currentBiome - 1].getYCoordinates(), (int)(rightPressed - leftPressed), (int)(downPressed - upPressed));
-                cout << biomes[currentBiome].getXCoordinates() << " " << biomes[currentBiome].getYCoordinates() << endl;
+                if(event.key.code == sf::Keyboard::Up){
+                    upPressed = true;
+                    if(biomes[currentBiome].getNeighbor("North") == -1){
+
+                        biomes[currentBiome + 1].generateSubsequentChunk(biomes[currentBiome].getMedium(), biomes[currentBiome].getXCoordinates(), biomes[currentBiome].getYCoordinates(), 0, -CHUNKHEIGHT);
+                        biomes[currentBiome].setNeighbor("North", currentBiome + 1);
+                        biomes[currentBiome + 1].setNeighbor("South", currentBiome);
+                        currentBiome ++;
+                    }
+                }
+                else if(event.key.code == sf::Keyboard::Down){
+                    downPressed = true;
+                    if(biomes[currentBiome].getNeighbor("South") == -1){
+                        biomes[currentBiome + 1].generateSubsequentChunk(biomes[currentBiome].getMedium(), biomes[currentBiome].getXCoordinates(), biomes[currentBiome].getYCoordinates(), 0, CHUNKHEIGHT);
+                        biomes[currentBiome].setNeighbor("South", currentBiome + 1);
+                        biomes[currentBiome + 1].setNeighbor("North", currentBiome);
+                        currentBiome ++;
+                    }
+                }
+                else if(event.key.code == sf::Keyboard::Right){
+                    rightPressed = true;
+                    if(biomes[currentBiome].getNeighbor("East") == -1){
+                        biomes[currentBiome + 1].generateSubsequentChunk(biomes[currentBiome].getMedium(), biomes[currentBiome].getXCoordinates(), biomes[currentBiome].getYCoordinates(), CHUNKWIDTH, 0);
+                        biomes[currentBiome].setNeighbor("East", currentBiome + 1);
+                        biomes[currentBiome + 1].setNeighbor("West", currentBiome);
+                        currentBiome ++;
+                    }
+                }
+                else if(event.key.code == sf::Keyboard::Left){
+                    leftPressed = true;
+                    if(biomes[currentBiome].getNeighbor("West") == -1){
+                        biomes[currentBiome + 1].generateSubsequentChunk(biomes[currentBiome].getMedium(), biomes[currentBiome].getXCoordinates(), biomes[currentBiome].getYCoordinates(), -CHUNKWIDTH, 0);
+                        biomes[currentBiome].setNeighbor("West", currentBiome + 1);
+                        biomes[currentBiome + 1].setNeighbor("East", currentBiome);
+                        currentBiome ++;
+                    }
+                }
             }
-
         }
-
+        cout << sizeof(biomes) << endl;
         window.clear(sf::Color::Black);
-
 
         for(int x = 0; x < currentBiome + 1; x++){
             biomes[x].displayBiome(&window);
